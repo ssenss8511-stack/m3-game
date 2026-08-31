@@ -30,6 +30,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function start(bot) {
   if (!bot) return;
 
+  // KILL-SWITCH: NOTIFIER_OFF=1 в env отключает пуши целиком.
+  // (Ставится по требованию, например пока не починили баги.)
+  if (process.env.NOTIFIER_OFF === '1' || process.env.NOTIFIER_OFF === 'true') {
+    console.log('[notifier] отключён через NOTIFIER_OFF');
+    return;
+  }
+
   const loop = async () => {
     const now = Date.now();
     const weekEndsAt = Tournament.weekEndsAt ? Tournament.weekEndsAt() : null;
@@ -51,7 +58,7 @@ function start(bot) {
           await bot.sendMessage(u.chat_id,
             `⚡ Попытки восстановились (${u.energy}/${u.max || C.energy.max}). Запусти игру и собери награды!`);
           u.notif_energy = now;
-          db.markDirty();
+          db.saveUser(u);   // сохраняем notif_* сразу — иначе SQLite не запомнит и пуш пойдёт снова
           await sleep(SEND_THROTTLE_MS);
           continue;   // одна нотификация за проход
         }
@@ -63,7 +70,7 @@ function start(bot) {
           await bot.sendMessage(u.chat_id,
             '🎁 Доступна ежедневная награда. Заходи и забирай — серия не должна прерываться!');
           u.notif_daily = now;
-          db.markDirty();
+          db.saveUser(u);   // сохраняем notif_* сразу — иначе SQLite не запомнит и пуш пойдёт снова
           await sleep(SEND_THROTTLE_MS);
           continue;
         }
@@ -76,7 +83,7 @@ function start(bot) {
           await bot.sendMessage(u.chat_id,
             `🏆 Недельный турнир заканчивается через ${hours}ч. Твой лучший — ${u.weekBest}. Успей улучшить!`);
           u.notif_tournament = now;
-          db.markDirty();
+          db.saveUser(u);   // сохраняем notif_* сразу — иначе SQLite не запомнит и пуш пойдёт снова
           await sleep(SEND_THROTTLE_MS);
           continue;
         }
@@ -88,13 +95,13 @@ function start(bot) {
           await bot.sendMessage(u.chat_id,
             `🎮 Мы скучаем! Прошло ${days} дн. с последней партии — открой игру и забери накопленные попытки + бонус.`);
           u.notif_reengage = now;
-          db.markDirty();
+          db.saveUser(u);   // сохраняем notif_* сразу — иначе SQLite не запомнит и пуш пойдёт снова
           await sleep(SEND_THROTTLE_MS);
         }
       } catch (e) {
         // 403 = пользователь заблокировал бота → больше не дёргаем
         if (e.response && e.response.statusCode === 403) {
-          u.chat_id = null; db.markDirty();
+          u.chat_id = null; db.saveUser(u);   // сохраняем notif_* сразу — иначе SQLite не запомнит и пуш пойдёт снова
         } else {
           console.warn('[notifier]', u.id, e.message);
         }
