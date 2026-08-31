@@ -1,4 +1,5 @@
 // Backend для match-3: раздаёт фронтенд + API серверной энергии.
+// (autodeploy pipeline test)
 const express = require('express');
 const path = require('path');
 const C = require('./config');
