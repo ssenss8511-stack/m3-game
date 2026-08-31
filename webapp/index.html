@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <title>M3</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@2/dist/tonconnect-ui.min.js"></script>
+  <script src="https://unpkg.com/tonweb@0.0.66/dist/tonweb.js"></script>
+  <link rel="stylesheet" href="css/style.css?v=87" />
+</head>
+<body>
+  <div id="app">
+    <!-- Верхняя панель: энергия, счёт, ходы -->
+    <header class="hud">
+      <div class="hud-item energy" id="energyBox" title="Попытки">
+        <span class="hud-icon">⚡</span>
+        <span id="energyValue">0</span><span class="muted">/<span id="energyMax">5</span></span>
+        <span class="hud-timer" id="energyTimer"></span>
+      </div>
+      <div class="hud-item coins" id="coinsBox" title="Монеты">
+        <span class="hud-label">МОНЕТЫ</span>
+        <span class="coins-row"><span class="coin-dot"></span><span id="coinsValue">0</span></span>
+      </div>
+      <div class="hud-item score">
+        <span class="hud-label">ОЧКИ</span>
+        <span id="scoreValue">0</span>
+      </div>
+      <div class="hud-item moves">
+        <span class="hud-label">ХОДЫ</span>
+        <span id="movesValue">—</span>
+      </div>
+    </header>
+
+    <!-- Иконки звука и темы — в отдельной строке между HUD и полем -->
+    <div class="top-actions">
+      <button class="icon-btn hidden" id="exitGameBtn" title="Выйти в меню" aria-label="Выйти в меню">
+        <span>🏠</span>
+      </button>
+      <button class="icon-btn" id="themeToggle" title="Тема" aria-label="Тема">
+        <span id="themeIcon">🌙</span>
+      </button>
+      <button class="icon-btn" id="soundToggle" title="Звук" aria-label="Звук">
+        <span id="soundIcon">🔊</span>
+      </button>
+    </div>
+
+    <!-- Игровое поле -->
+    <main class="board-wrap">
+      <div id="board" class="board"></div>
+
+      <!-- Бустеры (доступны во время партии) -->
+      <div class="booster-bar" id="boosterBar">
+        <button class="booster" id="boosterMoves" data-item="moves5">
+          <span class="b-icon">➕5</span>
+          <span class="b-price"><span class="coin-dot"></span><span id="bMoves5Price">80</span></span>
+        </button>
+        <button class="booster" id="boosterMovesEnergy" data-item="movesEnergy">
+          <span class="b-icon">+3</span>
+          <span class="b-price b-price-energy">⚡ 1</span>
+        </button>
+        <button class="booster" id="boosterShuffle" data-item="shuffle">
+          <span class="b-icon">🔀</span>
+          <span class="b-price"><span class="coin-dot"></span><span id="bShufflePrice">50</span></span>
+        </button>
+        <button class="booster" id="boosterBomb" data-item="bomb">
+          <span class="b-icon">💣</span>
+          <span class="b-price"><span class="coin-dot"></span><span id="bBombPrice">120</span></span>
+        </button>
+      </div>
+
+      <!-- Стартовый оверлей -->
+      <div class="overlay" id="startOverlay">
+        <div class="panel">
+          <div class="event-banner hidden" id="eventBanner"></div>
+          <div class="xp-block">
+            <div class="xp-row">
+              <span class="xp-level">Ур. <strong id="xpLevel">1</strong></span>
+              <span class="xp-text" id="xpText">0 / 100 XP</span>
+            </div>
+            <div class="xp-bar"><div class="xp-bar-fill" id="xpBarFill"></div></div>
+          </div>
+          <h1><span class="accent">M3</span></h1>
+          <p class="sub">Собирай 3+ в ряд. Чем длиннее цепочка и каскад — тем больше очков.</p>
+          <button class="btn btn-daily hidden" id="dailyBtn">
+            <span class="daily-title">Награда дня</span>
+            <span class="daily-sub" id="dailyBtnSub">День 1</span>
+          </button>
+          <button class="btn btn-chest hidden" id="chestBtn">
+            <span class="chest-title">🎁 Сундук</span>
+            <span class="chest-sub" id="chestBtnSub">Готов!</span>
+          </button>
+          <button class="btn btn-primary" id="playBtn">Играть&nbsp;⚡1</button>
+          <button class="btn btn-coins" id="coinShopBtn">Магазин <span class="coin-dot"></span></button>
+          <div class="menu-row">
+            <button class="btn btn-mini" id="questsBtn">🎯 Цели</button>
+            <button class="btn btn-mini" id="leaderboardBtn">🏆 Топ</button>
+            <button class="btn btn-mini" id="skinsBtn">🎨 Скины</button>
+          </div>
+          <div class="menu-row">
+            <button class="btn btn-mini" id="achBtn">⭐ Достижения</button>
+            <button class="btn btn-mini" id="inviteBtn">👥 Пригласить</button>
+            <button class="btn btn-mini" id="helpBtn">❓ Помощь</button>
+          </div>
+          <div class="menu-row">
+            <button class="btn btn-mini" id="profileBtn">👤 Профиль</button>
+          </div>
+          <p class="hint" id="startHint"></p>
+        </div>
+      </div>
+
+      <!-- Оверлей "нет энергии" -->
+      <div class="overlay hidden" id="noEnergyOverlay">
+        <div class="panel">
+          <h2>Попытки закончились</h2>
+          <p class="sub">Следующая попытка через</p>
+          <div class="big-timer" id="bigTimer">--:--</div>
+          <button class="btn btn-coins" id="coinShopBtn2">За монеты <span class="coin-dot"></span></button>
+          <button class="btn btn-buy" id="buyBtn">Купить за TON 💎</button>
+          <button class="btn btn-ghost" id="closeNoEnergy">Назад</button>
+        </div>
+      </div>
+
+      <!-- Оверлей конца игры -->
+      <div class="overlay hidden" id="endOverlay">
+        <div class="panel">
+          <h2>Игра окончена</h2>
+          <div class="result-score" id="endScore">0</div>
+          <p class="sub" id="endBest"></p>
+          <button class="btn btn-primary" id="againBtn">Ещё раз&nbsp;⚡1</button>
+          <button class="btn btn-coins" id="shareScoreBtn">📤 Поделиться рекордом</button>
+          <button class="btn btn-ghost" id="endMenuBtn">В меню</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Туториал -->
+  <div class="overlay hidden" id="tutorialOverlay">
+    <div class="panel tutorial">
+      <div class="tut-art" id="tutArt"></div>
+      <h2 id="tutTitle">Добро пожаловать в M3!</h2>
+      <p class="sub" id="tutText"></p>
+      <div class="tut-dots" id="tutDots"></div>
+      <button class="btn btn-primary" id="tutNextBtn">Дальше</button>
+      <button class="btn btn-ghost" id="tutSkipBtn">Пропустить</button>
+    </div>
+  </div>
+
+  <!-- Дневные цели -->
+  <div class="overlay hidden" id="questsOverlay">
+    <div class="panel quests">
+      <h2>🎯 Цели на сегодня</h2>
+      <p class="sub">Выполни до конца дня и получи награду автоматически.</p>
+      <div id="weeklyQuestBox"></div>
+      <div class="quest-list" id="questList"></div>
+      <button class="btn btn-ghost" id="closeQuests">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Сундук -->
+  <div class="overlay hidden" id="chestOverlay">
+    <div class="panel chest">
+      <h2>🎁 Награда из сундука</h2>
+      <div class="chest-art" id="chestArt">📦</div>
+      <div class="chest-reward" id="chestReward"></div>
+      <p class="sub" id="chestSub">Открой и получи случайную награду!</p>
+      <button class="btn btn-primary" id="openChestBtn">Открыть</button>
+      <button class="btn btn-ghost" id="closeChest">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Скины -->
+  <div class="overlay hidden" id="skinsOverlay">
+    <div class="panel skins">
+      <h2>🎨 Скины</h2>
+      <p class="sub">Косметика фишек — не влияет на геймплей.</p>
+      <div class="skins-list" id="skinsList"></div>
+      <button class="btn btn-ghost" id="closeSkins">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Лидерборд -->
+  <div class="overlay hidden" id="leaderboardOverlay">
+    <div class="panel lb">
+      <h2>🏆 Топ недели</h2>
+      <p class="sub">Сбрасывается каждый понедельник. ТОП-3 получают приз монетами автоматически.</p>
+      <div class="lb-list" id="lbList">Загрузка…</div>
+      <div class="lb-me" id="lbMe"></div>
+      <button class="btn btn-ghost" id="closeLeaderboard">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Достижения -->
+  <div class="overlay hidden" id="achOverlay">
+    <div class="panel ach">
+      <h2>⭐ Достижения</h2>
+      <div class="ach-list" id="achList"></div>
+      <button class="btn btn-ghost" id="closeAch">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Профиль -->
+  <div class="overlay hidden" id="profileOverlay">
+    <div class="panel profile">
+      <h2>👤 <span id="profileName">Игрок</span></h2>
+      <div class="profile-lvl">
+        <span>Уровень <strong id="profileLevel">1</strong></span>
+        <div class="xp-bar"><div class="xp-bar-fill" id="profileXpFill"></div></div>
+        <span class="hint" id="profileXpText">0 / 100 XP</span>
+      </div>
+      <div class="profile-stats" id="profileStats"></div>
+      <button class="btn btn-ghost" id="closeProfile">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Ежедневные награды -->
+  <div class="overlay hidden" id="dailyOverlay">
+    <div class="panel daily">
+      <h2>Награда дня</h2>
+      <p class="sub">Заходи каждый день и получай призы<br>Текущая серия: <strong id="dailyStreak">0</strong></p>
+      <div class="daily-grid" id="dailyGrid"></div>
+      <button class="btn btn-primary" id="dailyClaimBtn">Забрать</button>
+      <p class="hint" id="dailyHint"></p>
+      <button class="btn btn-ghost" id="dailyCloseBtn">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Магазин за монеты (внутренняя валюта) -->
+  <div class="overlay hidden" id="coinShopOverlay">
+    <div class="panel shop">
+      <h2>Магазин <span class="coin-dot" style="display:inline-block;vertical-align:middle;width:22px;height:22px"></span></h2>
+      <p class="sub">Трать заработанные в игре монеты.<br>Баланс: <span class="coin-dot" style="display:inline-block;vertical-align:middle"></span> <strong id="coinShopBalance">0</strong></p>
+      <div class="shop-list" id="coinShopList"></div>
+      <button class="btn btn-ghost" id="closeCoinShop">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Магазин TON (заглушка под будущую интеграцию) -->
+  <div class="overlay hidden" id="shopOverlay">
+    <div class="panel shop">
+      <h2>Магазин 💎</h2>
+      <p class="sub">Пополни попытки и получи бонусы. Оплата в TON.</p>
+      <div class="shop-list" id="shopList"></div>
+      <button class="btn btn-ghost" id="closeShop">Закрыть</button>
+      <p class="hint">Оплата TON появится после подключения кошелька (TON Connect).</p>
+    </div>
+  </div>
+
+  <script src="js/config.js?v=87"></script>
+  <script src="js/api.js?v=87"></script>
+  <script src="js/state.js?v=87"></script>
+  <script src="js/sound.js?v=87"></script>
+  <script src="js/skins.js?v=87"></script>
+  <script src="js/ton.js?v=87"></script>
+  <script src="js/game.js?v=87"></script>
+  <script src="js/main.js?v=87"></script>
+</body>
+</html>

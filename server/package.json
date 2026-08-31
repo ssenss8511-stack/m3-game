@@ -1,0 +1,21 @@
+{
+  "name": "tg-match3-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend для Telegram match-3: серверная энергия, проверка initData",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "migrate:sqlite": "node migrate-to-sqlite.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "node-telegram-bot-api": "^0.66.0"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.5.0"
+  }
+}

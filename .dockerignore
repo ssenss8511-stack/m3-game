@@ -1,0 +1,16 @@
+.git
+.gitignore
+*.md
+!README.md
+!SECURITY.md
+!BOT-SETUP.md
+node_modules
+server/node_modules
+server/data.json
+server/data.sqlite*
+server/audit.jsonl
+server/backups/
+server/.env
+.claude
+Dockerfile
+.dockerignore

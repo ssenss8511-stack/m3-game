@@ -1,0 +1,935 @@
+/* ===== Базовое ===== */
+:root {
+  --bg: #0f1023;
+  --bg2: #1a1b3a;
+  --panel: rgba(20, 22, 48, 0.92);
+  --text: #f2f3ff;
+  --muted: #8a8db0;
+  --accent: #6c8cff;
+  --accent2: #b06cff;
+  --good: #38d39f;
+  --ton: #0098ea;
+  --cell: 40px;
+}
+
+/* Подхватываем тему Telegram, если доступна */
+.in-telegram body { background: var(--tg-theme-bg-color, var(--bg)); }
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #2a2c63 0%, transparent 60%),
+    linear-gradient(160deg, var(--bg) 0%, var(--bg2) 100%);
+  user-select: none; -webkit-user-select: none;
+  overflow: hidden;
+}
+
+#app {
+  max-width: 480px; margin: 0 auto; height: 100%;
+  display: flex; flex-direction: column;
+  padding: env(safe-area-inset-top) 12px 12px;
+}
+
+/* ===== HUD ===== */
+.hud {
+  display: flex; gap: 8px; align-items: stretch;
+  padding: 12px 4px 14px;
+}
+.hud-item {
+  flex: 1; background: var(--panel);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px; padding: 8px 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+.hud-item.energy { flex-direction: row; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.hud-icon { font-size: 18px; }
+.hud-label { font-size: 10px; letter-spacing: 1px; color: var(--muted); }
+.hud-item .score #scoreValue, .score span:last-child { font-size: 20px; font-weight: 700; }
+.score { font-size: 20px; font-weight: 700; }
+.moves span:last-child { font-size: 20px; font-weight: 700; }
+.muted { color: var(--muted); }
+.hud-timer { width: 100%; text-align: center; font-size: 11px; color: var(--accent); }
+#energyValue { font-weight: 700; font-size: 18px; }
+
+.hud { gap: 6px; }
+.hud-item { padding: 8px 6px; }
+.coins-row { display: flex; align-items: center; gap: 4px; }
+#coinsValue { font-weight: 700; font-size: 18px; }
+.coin-dot {
+  width: 15px; height: 15px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe9a8, #f08c00 70%);
+  border: 1.5px solid #ffd34d;
+  box-shadow: inset 0 -1px 2px rgba(0,0,0,0.3);
+  flex: none;
+}
+
+/* ===== Поле ===== */
+.board-wrap {
+  position: relative; flex: 1;
+  display: flex; flex-direction: column; align-items: stretch;
+  padding-top: 6px;
+}
+.board {
+  position: relative; width: 100%;
+  background: rgba(0,0,0,0.22);
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.05);
+  box-shadow: inset 0 2px 24px rgba(0,0,0,0.4);
+  touch-action: none;
+}
+
+/* Фишки */
+:root {
+  /* Чёткий чёрный контур любой формы (работает и с clip-path).
+     4 однопиксельных drop-shadow по сторонам = ровная обводка 1px. */
+  --gem-outline:
+    drop-shadow(1px 0 0 #000)
+    drop-shadow(-1px 0 0 #000)
+    drop-shadow(0 1px 0 #000)
+    drop-shadow(0 -1px 0 #000);
+}
+.gem {
+  position: absolute; top: 0; left: 0;
+  width: var(--cell); height: var(--cell);
+  padding: 4px;
+  transition: transform 0.22s cubic-bezier(.2,.7,.3,1);
+  will-change: transform;
+  filter: var(--gem-outline) drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+}
+.gem::after {
+  content: ''; display: block; width: 100%; height: 100%;
+  border-radius: 22%;
+  /* глянцевый блик сверху поверх насыщенного цвета */
+  background:
+    radial-gradient(120% 75% at 50% 16%, rgba(255,255,255,0.6), rgba(255,255,255,0.08) 42%, rgba(255,255,255,0) 60%),
+    var(--g, #888);
+  box-shadow: inset 0 -4px 7px rgba(0,0,0,0.4), inset 0 3px 7px rgba(255,255,255,0.55);
+  transition: transform .12s;
+}
+
+/* Форма каждого типа фишки (цвет + форма = различать проще) */
+.gem.t0::after { border-radius: 22%; }                                   /* квадрат */
+.gem.t1::after { border-radius: 50%; }                                   /* круг */
+.gem.t2::after { clip-path: polygon(50% 7%, 95% 92%, 5% 92%); }          /* треугольник */
+.gem.t3::after { clip-path: polygon(50% 2%,59% 38%,96% 38%,66% 59%,77% 93%,50% 72%,23% 93%,34% 59%,4% 38%,41% 38%); } /* звезда — острее, классические 5 лучей */
+.gem.t4::after { clip-path: polygon(50% 2%,98% 50%,50% 98%,2% 50%); }    /* ромб */
+
+.gem.selected { filter: var(--gem-outline) drop-shadow(0 0 7px #fff) drop-shadow(0 2px 3px rgba(0,0,0,0.4)); z-index: 5; }
+.gem.selected::after { transform: scale(0.84); }
+.gem.clear::after { animation: pop 0.28s cubic-bezier(.5,-0.4,.7,.5) forwards; }
+@keyframes pop {
+  0%   { transform: scale(1); opacity: 1; }
+  40%  { transform: scale(1.28); opacity: 1; }         /* squash */
+  100% { transform: scale(0) rotate(20deg); opacity: 0; } /* стрельба к нулю */
+}
+
+/* Landed — небольшой squash-и-выпрямление, когда фишка приземлилась после падения */
+.gem.landed::after { animation: land 0.24s cubic-bezier(.34,1.56,.64,1); }
+@keyframes land {
+  0%   { transform: scaleY(1) scaleX(1); }
+  40%  { transform: scaleY(0.78) scaleX(1.14); }       /* удар о низ */
+  70%  { transform: scaleY(1.08) scaleX(0.94); }       /* отскок вверх */
+  100% { transform: scaleY(1) scaleX(1); }
+}
+
+/* Появление новой фишки сверху: pop-in */
+.gem.spawn::after { animation: spawn 0.32s cubic-bezier(.34,1.56,.64,1); }
+@keyframes spawn {
+  0%   { transform: scale(0.4); opacity: 0; }
+  60%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Успешный свап: короткое подпрыгивание */
+.gem.swap-success::after { animation: swapBounce 0.32s cubic-bezier(.34,1.56,.64,1); }
+@keyframes swapBounce {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* ===== Power-up фишки от длинных матчей ===== */
+/* Убираем форму (треугольник/звезда/…) и цвет — белая плитка + иконка. */
+.gem.power-arrowH::after,
+.gem.power-arrowV::after,
+.gem.power-bomb::after {
+  clip-path: none !important;
+  border-radius: 22% !important;
+  background: linear-gradient(160deg, #ffffff, #d8d8e0) !important;
+}
+
+/* Иконка сверху цветной плитки. Занимает большую часть клетки. */
+.gem.power-arrowH::before,
+.gem.power-arrowV::before,
+.gem.power-bomb::before {
+  content: ''; position: absolute; inset: 5px; z-index: 3;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 92% 92%;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7));
+}
+/* Двусторонняя стрелка ⇔ (горизонталь) — чёрная на белом */
+.gem.power-arrowH::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M6 50 L28 26 L28 42 L72 42 L72 26 L94 50 L72 74 L72 58 L28 58 L28 74 Z' fill='black'/></svg>");
+}
+/* Двусторонняя стрелка ⇕ (вертикаль) */
+.gem.power-arrowV::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 6 L26 28 L42 28 L42 72 L26 72 L50 94 L74 72 L58 72 L58 28 L74 28 Z' fill='black'/></svg>");
+}
+/* Бомба (5+ в ряд) */
+.gem.power-bomb::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='48' cy='60' r='30' fill='%23222'/><circle cx='38' cy='52' r='6' fill='white' opacity='0.4'/><path d='M60 30 Q72 22 78 12' stroke='%23222' stroke-width='4' fill='none' stroke-linecap='round'/><circle cx='80' cy='12' r='6' fill='%23ff8000' stroke='%23ffd000' stroke-width='2'/></svg>");
+}
+.gem.power-arrowH, .gem.power-arrowV, .gem.power-bomb {
+  animation: powerGlow 1.4s ease-in-out infinite;
+}
+@keyframes powerGlow {
+  0%,100% { filter: var(--gem-outline) drop-shadow(0 0 1px rgba(255,255,255,0.4)) drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+  50%     { filter: var(--gem-outline) drop-shadow(0 0 6px rgba(255,255,255,1))   drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+}
+
+/* Частицы при матче — разлетаются в цвет фишки и угасают */
+.particle {
+  position: absolute; left: 0; top: 0;
+  width: 7px; height: 7px; border-radius: 50%;
+  pointer-events: none; z-index: 6;
+  box-shadow: 0 0 6px currentColor;
+  will-change: transform, opacity;
+  animation: particleFly 0.55s ease-out forwards;
+}
+@keyframes particleFly {
+  from { transform: translate(var(--x0), var(--y0)) scale(1); opacity: 1; }
+  to   { transform: translate(calc(var(--x0) + var(--dx)), calc(var(--y0) + var(--dy))) scale(0.2); opacity: 0; }
+}
+
+/* Спец-фишки: отдельные типы со своими SVG-иконками (собрать 3 в ряд) */
+/* спец-фишки — это сам символ (монета / подарок / молния), без подложки */
+.gem.special::after { display: none; }
+.gem.special { filter: var(--gem-outline) drop-shadow(0 2px 4px rgba(0,0,0,0.55)); }
+.gem.special .icon { inset: 1px; }
+.gem.special .icon svg { width: 100%; height: 100%; }
+.gem .icon {
+  position: absolute; inset: 4px; z-index: 2; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .12s;
+}
+.gem .icon svg { width: 58%; height: 58%; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35)); }
+.gem.selected .icon { transform: scale(0.84); }
+.gem.clear .icon { animation: pop 0.22s ease forwards; }
+
+/* Подсказка: пульсирует внешнее свечение через filter (как у .selected).
+   filter не влияет на геометрию — плитка не двигается, не сжимается и
+   не теряет блик. Меняется только сила ореола. */
+.gem.hinted { z-index: 4; animation: hintGlow 0.85s ease-in-out infinite; }
+@keyframes hintGlow {
+  0%,100% { filter: var(--gem-outline) drop-shadow(0 0 1px rgba(255,255,255,0.45)) drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+  50%     { filter: var(--gem-outline) drop-shadow(0 0 8px rgba(255,255,255,1))    drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+}
+
+/* Всплывающие награды */
+#toastWrap {
+  position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+  z-index: 30; display: flex; flex-direction: column; gap: 6px;
+  align-items: center; pointer-events: none;
+}
+.toast {
+  background: rgba(20,22,48,0.95); border: 1px solid rgba(255,255,255,0.14);
+  color: #fff; padding: 8px 16px; border-radius: 999px;
+  font-weight: 700; font-size: 14px; white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  animation: toastIn .25s ease, toastOut .3s ease 1.5s forwards;
+}
+@keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(-12px); } }
+
+/* Цвета типов фишек */
+.gem.t0 { --g: linear-gradient(150deg,#ff9a9a,#ff3b3b 45%,#c00f2d); } /* красный */
+.gem.t1 { --g: linear-gradient(150deg,#74c8ff,#2b8bff 45%,#0b54d6); } /* синий */
+.gem.t2 { --g: linear-gradient(150deg,#8cf2a4,#2fd45e 45%,#108a36); } /* зелёный */
+.gem.t3 { --g: linear-gradient(150deg,#ffe680,#ffc61a 45%,#f08000); } /* золотой */
+.gem.t4 { --g: linear-gradient(150deg,#eaa0ff,#c54dff 45%,#9112d6); } /* фиолетовый */
+.gem.t5 { --g: linear-gradient(150deg,#5ce0ef,#1cc2d6 45%,#0a7d8f); } /* бирюзовый */
+.gem.t6 { --g: linear-gradient(150deg,#ffc07a,#ff8a2b 45%,#d94e0f); } /* оранжевый */
+
+/* ===== Скин: Pastel — мягкие приглушённые цвета ===== */
+html[data-skin="pastel"] .gem.t0 { --g: linear-gradient(150deg,#fdd2d2,#f08a8a 45%,#c66b6b); }
+html[data-skin="pastel"] .gem.t1 { --g: linear-gradient(150deg,#cce4ff,#92b8e6 45%,#6987b3); }
+html[data-skin="pastel"] .gem.t2 { --g: linear-gradient(150deg,#d2f0d8,#88c79a 45%,#5a8a6c); }
+html[data-skin="pastel"] .gem.t3 { --g: linear-gradient(150deg,#fff1c2,#ffd87a 45%,#cba751); }
+html[data-skin="pastel"] .gem.t4 { --g: linear-gradient(150deg,#ead4ff,#b69be0 45%,#8a72b3); }
+
+/* ===== Скин: Neon — тёмные фишки с яркой неоновой «трубкой» ===== */
+/* Чёрная обводка не нужна — её роль играет цветной неон */
+html[data-skin="neon"] { --gem-outline: ; }
+
+/* Делаем поле тёмным, чтобы неон по-настоящему светился.
+   !important — потому что светлая тема использует ту же специфичность. */
+html[data-skin="neon"] .board {
+  background: #08080d !important;
+  border-color: rgba(255,255,255,0.08) !important;
+  box-shadow: inset 0 2px 28px rgba(0,0,0,0.7) !important;
+}
+
+html[data-skin="neon"] .gem { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6)); }
+html[data-skin="neon"] .gem::after {
+  /* Тёмное «стекло», подкрашенное цветом неона у центра — фигура читаема */
+  background: radial-gradient(circle at 50% 35%, var(--neon-dim, #2a0020) 0%, #07070e 95%) !important;
+  /* Жирная «трубка» 3px + сильное внутреннее свечение + узкий внешний ореол */
+  box-shadow:
+    inset 0 0 0 3px var(--neon, #fff),
+    inset 0 0 14px var(--neon, #fff),
+    0 0 7px var(--neon, #fff);
+}
+html[data-skin="neon"] .gem.special {
+  filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 8px currentColor) drop-shadow(0 1px 2px rgba(0,0,0,0.7));
+}
+
+html[data-skin="neon"] .gem.t0 { --neon:#ff2675; --neon-dim:#3a0820; color:#ff2675; }  /* hot pink */
+html[data-skin="neon"] .gem.t1 { --neon:#00e5ff; --neon-dim:#003040; color:#00e5ff; }  /* electric cyan */
+html[data-skin="neon"] .gem.t2 { --neon:#2bff7c; --neon-dim:#003820; color:#2bff7c; }  /* lime */
+html[data-skin="neon"] .gem.t3 { --neon:#ffd000; --neon-dim:#3a2c00; color:#ffd000; }  /* electric yellow */
+html[data-skin="neon"] .gem.t4 { --neon:#d040ff; --neon-dim:#2a0040; color:#d040ff; }  /* magenta */
+
+/* ===== Скин: Candy — конфетные сладости ===== */
+html[data-skin="candy"] .gem.t0::after {  /* леденец */
+  background: radial-gradient(circle at 30% 30%, #fff 0%, #ff6b9d 18%, #ff3870 70%);
+  clip-path: none; border-radius: 50%;
+}
+html[data-skin="candy"] .gem.t1::after {  /* мармеладный медведь */
+  background: radial-gradient(circle at 35% 30%, #aef0ff 0%, #3eb9ff 60%, #1078d6 100%);
+  clip-path: none; border-radius: 40% 40% 50% 50%;
+}
+html[data-skin="candy"] .gem.t2::after {  /* мята-полоски */
+  background: repeating-linear-gradient(45deg, #ffffff 0 6px, #2fd45e 6px 12px);
+  clip-path: none; border-radius: 50%;
+}
+html[data-skin="candy"] .gem.t3::after {  /* желейка */
+  background: radial-gradient(ellipse at 40% 30%, #fff5b3 0%, #ffd700 60%, #d49a00 100%);
+  clip-path: none; border-radius: 38%;
+}
+html[data-skin="candy"] .gem.t4::after {  /* шоколадка */
+  background: linear-gradient(135deg, #b07a4e 0%, #6b3e1f 60%, #3b210f 100%);
+  clip-path: none; border-radius: 10%;
+}
+
+/* ===== Скин: Fruits — фрукты и ягоды ===== */
+html[data-skin="fruits"] .gem::after {
+  background-color: transparent !important;
+  background-size: 100% 100% !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  clip-path: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+html[data-skin="fruits"] .gem.t0::after { /* яблоко */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 14 Q60 8 70 16 Q73 26 56 28' fill='%2336a14b'/><circle cx='50' cy='60' r='34' fill='%23e3252f'/><ellipse cx='38' cy='48' rx='9' ry='4' fill='%23ff9090' opacity='0.55'/></svg>");
+}
+html[data-skin="fruits"] .gem.t1::after { /* банан */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M22 38 Q18 78 62 88 Q86 86 80 70 Q60 75 42 60 Q28 46 32 30 Q22 30 22 38z' fill='%23ffd84d' stroke='%23c08b00' stroke-width='2'/><ellipse cx='26' cy='35' rx='4' ry='6' fill='%237a5a1a'/></svg>");
+}
+html[data-skin="fruits"] .gem.t2::after { /* лайм */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='52' r='36' fill='%2336c25e'/><path d='M50 18 q4 4 0 8 q-4 -4 0 -8z' fill='%231e6b30'/><circle cx='38' cy='42' r='6' fill='%2384e8a3' opacity='0.6'/></svg>");
+}
+html[data-skin="fruits"] .gem.t3::after { /* лимон */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><ellipse cx='50' cy='52' rx='34' ry='28' fill='%23ffd700' transform='rotate(-15 50 52)'/><path d='M16 30 l-6 -6 M84 70 l6 6' stroke='%23c09800' stroke-width='4' stroke-linecap='round'/><ellipse cx='36' cy='42' rx='8' ry='4' fill='%23fff099' opacity='0.7' transform='rotate(-15 36 42)'/></svg>");
+}
+html[data-skin="fruits"] .gem.t4::after { /* виноград */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M48 14 q4 -6 14 -4' stroke='%2336a14b' stroke-width='3' fill='none'/><g fill='%23a833d1'><circle cx='50' cy='30' r='11'/><circle cx='36' cy='44' r='11'/><circle cx='64' cy='44' r='11'/><circle cx='50' cy='56' r='11'/><circle cx='38' cy='70' r='10'/><circle cx='62' cy='70' r='10'/><circle cx='50' cy='82' r='9'/></g></svg>");
+}
+
+/* ===== Скин: Space — космос ===== */
+html[data-skin="space"] .gem::after {
+  background-color: transparent !important;
+  background-size: 100% 100% !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  clip-path: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+html[data-skin="space"] .gem.t0::after { /* солнце */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g stroke='%23ffd000' stroke-width='5' stroke-linecap='round'><line x1='50' y1='6' x2='50' y2='18'/><line x1='50' y1='82' x2='50' y2='94'/><line x1='6' y1='50' x2='18' y2='50'/><line x1='82' y1='50' x2='94' y2='50'/><line x1='17' y1='17' x2='25' y2='25'/><line x1='75' y1='75' x2='83' y2='83'/><line x1='75' y1='25' x2='83' y2='17'/><line x1='17' y1='83' x2='25' y2='75'/></g><circle cx='50' cy='50' r='25' fill='%23ffce21'/><circle cx='42' cy='42' r='6' fill='%23fff099' opacity='0.7'/></svg>");
+}
+html[data-skin="space"] .gem.t1::after { /* земля */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='36' fill='%231e88e5'/><path d='M28 40 q14 -6 22 6 q-6 10 -16 4z' fill='%2336a14b'/><path d='M56 64 q10 -3 18 6 q-10 5 -18 -2z' fill='%2336a14b'/><circle cx='38' cy='38' r='6' fill='%2384c5ff' opacity='0.6'/></svg>");
+}
+html[data-skin="space"] .gem.t2::after { /* сатурн */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><ellipse cx='50' cy='52' rx='45' ry='12' fill='none' stroke='%23c97f00' stroke-width='5' transform='rotate(-15 50 52)'/><circle cx='50' cy='50' r='22' fill='%23ffce21'/><ellipse cx='42' cy='42' rx='5' ry='3' fill='%23fff099' opacity='0.7'/></svg>");
+}
+html[data-skin="space"] .gem.t3::after { /* звезда */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 8 L60 38 L92 38 L66 56 L77 88 L50 70 L23 88 L34 56 L8 38 L40 38 z' fill='%23ffd000' stroke='%23c97f00' stroke-width='2'/></svg>");
+}
+html[data-skin="space"] .gem.t4::after { /* луна */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='36' fill='%23c5cbe0'/><circle cx='38' cy='40' r='7' fill='%23a3a8c0'/><circle cx='58' cy='58' r='5' fill='%23a3a8c0'/><circle cx='62' cy='35' r='3' fill='%23a3a8c0'/><circle cx='40' cy='66' r='5' fill='%23a3a8c0'/></svg>");
+}
+
+/* ===== Скин: Animals — милые звери ===== */
+html[data-skin="animals"] .gem::after {
+  background-color: transparent !important;
+  background-size: 100% 100% !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  clip-path: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+html[data-skin="animals"] .gem.t0::after { /* лиса */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M20 40 L30 20 L40 42z M80 40 L70 20 L60 42z' fill='%23e6712d'/><circle cx='50' cy='55' r='30' fill='%23f28c3f'/><path d='M50 55 Q30 62 35 82 Q50 78 65 82 Q70 62 50 55z' fill='%23fff'/><circle cx='40' cy='52' r='4' fill='%23222'/><circle cx='60' cy='52' r='4' fill='%23222'/><circle cx='50' cy='66' r='3' fill='%23222'/></svg>");
+}
+html[data-skin="animals"] .gem.t1::after { /* панда */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='28' cy='30' r='12' fill='%23222'/><circle cx='72' cy='30' r='12' fill='%23222'/><circle cx='50' cy='58' r='32' fill='%23fff' stroke='%23ddd' stroke-width='2'/><ellipse cx='40' cy='55' rx='7' ry='9' fill='%23222'/><ellipse cx='60' cy='55' rx='7' ry='9' fill='%23222'/><circle cx='40' cy='55' r='3' fill='%23fff'/><circle cx='60' cy='55' r='3' fill='%23fff'/><ellipse cx='50' cy='72' rx='5' ry='3' fill='%23222'/></svg>");
+}
+html[data-skin="animals"] .gem.t2::after { /* лягушка */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='30' cy='32' r='14' fill='%234ba640'/><circle cx='70' cy='32' r='14' fill='%234ba640'/><circle cx='30' cy='32' r='7' fill='%23fff'/><circle cx='70' cy='32' r='7' fill='%23fff'/><circle cx='30' cy='32' r='3' fill='%23222'/><circle cx='70' cy='32' r='3' fill='%23222'/><ellipse cx='50' cy='60' rx='34' ry='28' fill='%2364c952'/><path d='M32 70 Q50 82 68 70' fill='none' stroke='%23222' stroke-width='3' stroke-linecap='round'/></svg>");
+}
+html[data-skin="animals"] .gem.t3::after { /* кот */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M20 45 L28 18 L44 40z M80 45 L72 18 L56 40z' fill='%23f5b23b'/><circle cx='50' cy='58' r='30' fill='%23ffca5a'/><ellipse cx='40' cy='55' rx='4' ry='6' fill='%23222'/><ellipse cx='60' cy='55' rx='4' ry='6' fill='%23222'/><path d='M46 68 L50 72 L54 68' fill='none' stroke='%23222' stroke-width='2' stroke-linecap='round'/><line x1='30' y1='64' x2='42' y2='66' stroke='%23222' stroke-width='1.5'/><line x1='30' y1='70' x2='42' y2='70' stroke='%23222' stroke-width='1.5'/><line x1='70' y1='64' x2='58' y2='66' stroke='%23222' stroke-width='1.5'/><line x1='70' y1='70' x2='58' y2='70' stroke='%23222' stroke-width='1.5'/></svg>");
+}
+html[data-skin="animals"] .gem.t4::after { /* пчела */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><ellipse cx='30' cy='30' rx='16' ry='10' fill='%23fff' opacity='0.85'/><ellipse cx='70' cy='30' rx='16' ry='10' fill='%23fff' opacity='0.85'/><ellipse cx='50' cy='58' rx='32' ry='28' fill='%23ffce21'/><rect x='30' y='42' width='40' height='6' fill='%23222'/><rect x='30' y='58' width='40' height='6' fill='%23222'/><rect x='30' y='74' width='40' height='6' fill='%23222'/><circle cx='42' cy='50' r='3' fill='%23222'/><circle cx='58' cy='50' r='3' fill='%23222'/></svg>");
+}
+
+/* ===== Скин: Gems — драгоценные камни ===== */
+html[data-skin="gems"] .gem::after {
+  background-color: transparent !important;
+  background-size: 100% 100% !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  clip-path: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));
+}
+html[data-skin="gems"] .gem.t0::after { /* рубин */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M20 30 L50 10 L80 30 L60 90 L40 90z' fill='%23e91e63' stroke='%23880e4f' stroke-width='2'/><path d='M20 30 L50 30 L40 90z' fill='%23ff5c8d' opacity='0.7'/><path d='M50 10 L50 30 L80 30z' fill='%23fff' opacity='0.35'/></svg>");
+}
+html[data-skin="gems"] .gem.t1::after { /* сапфир */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M15 40 L50 10 L85 40 L50 92z' fill='%231e88e5' stroke='%23003c8f' stroke-width='2'/><path d='M15 40 L50 10 L50 92z' fill='%2364b5f6' opacity='0.65'/><path d='M50 10 L85 40 L50 40z' fill='%23fff' opacity='0.35'/></svg>");
+}
+html[data-skin="gems"] .gem.t2::after { /* изумруд */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='20' y='20' width='60' height='60' fill='%2300a86b' stroke='%23004d33' stroke-width='2'/><path d='M20 20 L40 40 L60 40 L80 20z' fill='%2354d99a' opacity='0.7'/><path d='M20 80 L40 60 L60 60 L80 80z' fill='%23004d33' opacity='0.5'/><rect x='30' y='30' width='8' height='8' fill='%23fff' opacity='0.4'/></svg>");
+}
+html[data-skin="gems"] .gem.t3::after { /* топаз */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M25 25 L75 25 L88 55 L50 95 L12 55z' fill='%23ffb300' stroke='%23825200' stroke-width='2'/><path d='M25 25 L75 25 L50 55z' fill='%23ffe082' opacity='0.75'/><path d='M12 55 L50 55 L50 95z' fill='%23825200' opacity='0.4'/></svg>");
+}
+html[data-skin="gems"] .gem.t4::after { /* аметист */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 8 L82 28 L92 60 L70 92 L30 92 L8 60 L18 28z' fill='%239c27b0' stroke='%234a0072' stroke-width='2'/><path d='M50 8 L82 28 L50 50z' fill='%23ce93d8' opacity='0.7'/><path d='M8 60 L30 92 L50 50z' fill='%234a0072' opacity='0.4'/></svg>");
+}
+
+/* ===== Скин: Halloween — тыквы и призраки ===== */
+html[data-skin="halloween"] .board { background: #1a0d1a; }
+html[data-skin="halloween"] .gem::after {
+  background-color: transparent !important;
+  background-size: 100% 100% !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  clip-path: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  filter: drop-shadow(0 2px 4px rgba(255,140,0,0.4));
+}
+html[data-skin="halloween"] .gem.t0::after { /* тыква */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='46' y='12' width='8' height='14' fill='%23388e3c'/><ellipse cx='50' cy='58' rx='36' ry='30' fill='%23ff6f00'/><ellipse cx='28' cy='58' rx='10' ry='28' fill='%23e65100' opacity='0.7'/><ellipse cx='72' cy='58' rx='10' ry='28' fill='%23e65100' opacity='0.7'/><path d='M35 52 L45 60 L35 60z M65 52 L55 60 L65 60z' fill='%23222'/><path d='M32 70 Q40 80 50 74 Q60 80 68 70 L64 68 L60 74 L56 68 L50 72 L44 68 L40 74 L36 68z' fill='%23222'/></svg>");
+}
+html[data-skin="halloween"] .gem.t1::after { /* призрак */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M20 40 Q20 10 50 10 Q80 10 80 40 L80 82 L72 88 L64 82 L56 88 L48 82 L40 88 L32 82 L24 88 L20 82z' fill='%23f5f5f5' stroke='%23bbb' stroke-width='2'/><ellipse cx='40' cy='42' rx='5' ry='7' fill='%23222'/><ellipse cx='60' cy='42' rx='5' ry='7' fill='%23222'/><ellipse cx='50' cy='58' rx='6' ry='4' fill='%23222'/></svg>");
+}
+html[data-skin="halloween"] .gem.t2::after { /* летучая мышь */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 30 Q30 20 10 30 Q20 40 8 60 Q28 55 40 65 Q45 55 50 55 Q55 55 60 65 Q72 55 92 60 Q80 40 90 30 Q70 20 50 30z' fill='%232c1a3d'/><circle cx='50' cy='38' r='10' fill='%234a2a5f'/><path d='M42 32 L46 26 L48 34 M58 32 L54 26 L52 34' fill='%23222'/><circle cx='45' cy='38' r='2' fill='%23ffce21'/><circle cx='55' cy='38' r='2' fill='%23ffce21'/></svg>");
+}
+html[data-skin="halloween"] .gem.t3::after { /* конфета */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><ellipse cx='50' cy='50' rx='24' ry='16' fill='%238e24aa'/><path d='M26 50 L8 40 L14 50 L8 60z' fill='%238e24aa'/><path d='M74 50 L92 40 L86 50 L92 60z' fill='%238e24aa'/><path d='M32 46 L68 46 M32 54 L68 54' stroke='%23ff6f00' stroke-width='3'/><ellipse cx='42' cy='44' rx='4' ry='2' fill='%23fff' opacity='0.5'/></svg>");
+}
+html[data-skin="halloween"] .gem.t4::after { /* череп */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M20 46 Q20 12 50 12 Q80 12 80 46 L80 66 L64 66 L64 82 L56 78 L56 82 L44 82 L44 78 L36 82 L36 66 L20 66z' fill='%23eceff1' stroke='%2378909c' stroke-width='2'/><ellipse cx='38' cy='46' rx='8' ry='10' fill='%23222'/><ellipse cx='62' cy='46' rx='8' ry='10' fill='%23222'/><path d='M46 62 L50 66 L54 62 L50 70z' fill='%23222'/><line x1='42' y1='72' x2='42' y2='82' stroke='%2378909c' stroke-width='1.5'/><line x1='50' y1='72' x2='50' y2='82' stroke='%2378909c' stroke-width='1.5'/><line x1='58' y1='72' x2='58' y2='82' stroke='%2378909c' stroke-width='1.5'/></svg>");
+}
+
+.combo-pop {
+  position: absolute; left: 50%; top: 40%;
+  transform: translate(-50%,-50%);
+  font-size: 40px; font-weight: 800; color: #fff;
+  text-shadow: 0 2px 12px var(--accent2);
+  pointer-events: none; animation: combo 0.7s ease forwards;
+}
+@keyframes combo {
+  0% { opacity: 0; transform: translate(-50%,-30%) scale(0.5); }
+  30% { opacity: 1; transform: translate(-50%,-50%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%,-70%) scale(1); }
+}
+
+/* ===== Оверлеи ===== */
+.overlay {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8,8,22,0.72); backdrop-filter: blur(6px);
+  border-radius: 18px;
+}
+#shopOverlay { position: fixed; border-radius: 0; }
+.overlay.hidden { display: none; }
+.panel {
+  width: min(90%, 360px);
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px; padding: 26px 22px; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.panel h1 { font-size: 34px; margin: 0 0 8px; line-height: 1.05; }
+.panel h2 { font-size: 24px; margin: 0 0 10px; }
+.accent { background: linear-gradient(90deg,var(--accent),var(--accent2));
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+.hint { color: var(--muted); font-size: 12px; margin-top: 14px; }
+
+.btn {
+  display: block; width: 100%; border: 0; cursor: pointer;
+  padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 700;
+  color: #fff; margin-top: 10px; transition: transform .08s, opacity .2s;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: .5; }
+.btn-primary { background: linear-gradient(90deg,var(--accent),var(--accent2)); }
+.btn-buy { background: linear-gradient(90deg,var(--ton),#33b5ff); }
+.btn-coins { background: linear-gradient(90deg,#f59f00,#ffc94d); color: #5a3500;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-coins .coin-dot { border-color: #c47b00; }
+
+/* Кнопка ежедневной награды */
+.btn-daily {
+  background: linear-gradient(90deg,#38d39f,#2bc488);
+  display: flex; flex-direction: column; gap: 2px;
+  position: relative; padding: 12px;
+}
+/* Красная точка-индикатор «есть награда» — только при .has-claim */
+.btn-daily.has-claim::after {
+  content: ''; position: absolute; top: -4px; right: -4px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #ff3b3b; border: 2px solid var(--panel);
+  animation: blink 1.2s ease-in-out infinite;
+}
+.btn-daily .daily-title { font-size: 15px; font-weight: 700; }
+.btn-daily .daily-sub   { font-size: 12px; opacity: 0.9; font-weight: 500; }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Кнопка сундука — «не готов» (приглушённая, с прогресс-полоской) */
+.btn-chest {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text);
+  display: flex; flex-direction: column; gap: 2px;
+  position: relative; padding: 12px; overflow: hidden;
+}
+.btn-chest::before {
+  /* прогресс-полоска внутри кнопки */
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: var(--progress, 0%);
+  background: linear-gradient(90deg, rgba(176,108,255,0.35), rgba(255,138,43,0.35));
+  transition: width .4s ease;
+  pointer-events: none;
+}
+.btn-chest .chest-title,
+.btn-chest .chest-sub { position: relative; z-index: 1; }
+.btn-chest .chest-title { font-size: 15px; font-weight: 700; }
+.btn-chest .chest-sub   { font-size: 12px; opacity: 0.85; font-weight: 500; }
+
+/* Состояние «готов» — яркий цвет + красная точка-индикатор */
+.btn-chest.ready {
+  background: linear-gradient(90deg,#b06cff,#ff8a2b);
+  border-color: transparent;
+}
+.btn-chest.ready::before { display: none; }
+.btn-chest.ready::after {
+  content: ''; position: absolute; top: -4px; right: -4px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #ff3b3b; border: 2px solid var(--panel);
+  animation: blink 1.2s ease-in-out infinite;
+  z-index: 2;
+}
+
+/* Оверлей сундука */
+.panel.chest { width: min(94%, 360px); text-align: center; }
+.chest-art {
+  font-size: 80px; line-height: 1; margin: 8px auto 12px;
+  animation: chestIdle 1.6s ease-in-out infinite;
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.4));
+}
+.chest-art.shake { animation: chestShake 0.5s ease-out 2; }
+.chest-art.opened { animation: chestOpen 0.5s ease-out forwards; }
+@keyframes chestIdle {
+  0%,100% { transform: translateY(0) rotate(-3deg); }
+  50%     { transform: translateY(-6px) rotate(3deg); }
+}
+@keyframes chestShake {
+  0%,100% { transform: translateX(0) rotate(0); }
+  25% { transform: translateX(-6px) rotate(-8deg); }
+  75% { transform: translateX(6px) rotate(8deg); }
+}
+@keyframes chestOpen {
+  to { transform: scale(1.3); filter: drop-shadow(0 0 20px #ffd34d); }
+}
+.chest-reward {
+  min-height: 36px; font-size: 22px; font-weight: 800; margin: 6px 0 4px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  color: var(--good);
+}
+
+/* Сетка ежедневных наград */
+.panel.daily { width: min(94%, 380px); }
+.daily-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 8px; margin: 4px 0 14px;
+}
+.daily-cell {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 10px 4px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  font-size: 12px; position: relative;
+}
+/* «Пирамидка»: дни 5 и 6 встают по центру второго ряда — ровно под днями 2 и 3 */
+.daily-cell.day5 { grid-column: 2; }
+.daily-cell.day6 { grid-column: 3; }
+.daily-cell.day7 { grid-column: span 4; flex-direction: row; justify-content: center; gap: 10px; padding: 12px;
+  background: linear-gradient(90deg, rgba(56,211,159,0.15), rgba(108,140,255,0.15));
+  border-color: rgba(56,211,159,0.4);
+}
+.daily-cell .d-label { color: var(--muted); font-size: 11px; letter-spacing: 0.5px; }
+.daily-cell .d-reward { font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 4px; }
+.daily-cell.claimed { opacity: 0.45; }
+.daily-cell.claimed::before {
+  content: '✓'; position: absolute; top: 4px; right: 6px;
+  color: var(--good); font-weight: 800; font-size: 14px;
+}
+.daily-cell.current {
+  border-color: var(--good); box-shadow: 0 0 0 2px rgba(56,211,159,0.35);
+  animation: dayPulse 1.6s ease-in-out infinite;
+}
+@keyframes dayPulse {
+  0%,100% { box-shadow: 0 0 0 2px rgba(56,211,159,0.35); }
+  50%     { box-shadow: 0 0 0 5px rgba(56,211,159,0.15); }
+}
+.shop-item.locked { opacity: 0.55; }
+.shop-item:disabled { cursor: not-allowed; }
+.shop-price.coins { color: #f59f00; display: inline-flex; align-items: center; gap: 5px; }
+.btn-ghost { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: var(--muted); }
+
+.big-timer { font-size: 44px; font-weight: 800; color: var(--accent); margin: 6px 0 18px; }
+.result-score { font-size: 56px; font-weight: 800;
+  background: linear-gradient(90deg,var(--good),var(--accent));
+  -webkit-background-clip: text; background-clip: text; color: transparent; margin: 4px 0 6px; }
+
+/* ===== Строка с иконками (звук, тема) — между HUD и полем ===== */
+.top-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 6px 4px 0;
+}
+.icon-btn {
+  width: 36px; height: 36px; padding: 0;
+  border-radius: 50%; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(20,22,48,0.85);
+  color: var(--text); font-size: 16px;
+  cursor: pointer; transition: transform .08s, opacity .2s;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.icon-btn:active { transform: scale(0.92); }
+.icon-btn.muted { opacity: 0.55; }
+
+/* ===== Светлая тема ===== */
+html.theme-light {
+  --bg: #f0f1f7;
+  --bg2: #e7e9f2;
+  --panel: rgba(255,255,255,0.96);
+  --text: #1a1b3a;
+  --muted: #6a6d90;
+  --accent: #4a6cff;
+  --accent2: #9c4dff;
+  --good: #2bbf80;
+  --ton: #0098ea;
+}
+html.theme-light body {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #ffffff 0%, transparent 60%),
+    linear-gradient(160deg, var(--bg) 0%, var(--bg2) 100%);
+  color: var(--text);
+}
+html.theme-light .hud-item,
+html.theme-light .panel,
+html.theme-light .icon-btn {
+  background: var(--panel);
+  border-color: rgba(0,0,0,0.06);
+  color: var(--text);
+}
+html.theme-light .board {
+  background: rgba(0,0,0,0.05);
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: inset 0 2px 24px rgba(0,0,0,0.08);
+}
+html.theme-light .overlay { background: rgba(180,184,210,0.55); }
+html.theme-light .btn-mini { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); color: var(--text); }
+html.theme-light .btn-ghost { border-color: rgba(0,0,0,0.12); color: var(--muted); }
+html.theme-light .shop-item { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); color: var(--text); }
+html.theme-light .lb-row { background: rgba(0,0,0,0.03); }
+html.theme-light .ach-item,
+html.theme-light .quest-item,
+html.theme-light .daily-cell { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); }
+html.theme-light .toast { background: rgba(255,255,255,0.97); color: var(--text); border-color: rgba(0,0,0,0.1); }
+
+/* ===== Меню (мини-кнопки) ===== */
+.menu-row { display: flex; gap: 6px; margin-top: 10px; }
+.btn-mini {
+  flex: 1; padding: 10px 6px; font-size: 12px; font-weight: 600;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text); border-radius: 12px; cursor: pointer; margin: 0;
+}
+.btn-mini:active { transform: scale(0.97); }
+
+/* ===== Бустеры под полем ===== */
+.booster-bar {
+  display: flex; gap: 8px; padding: 10px 4px;
+  margin-top: auto;          /* прижимаем к нижнему краю board-wrap */
+  justify-content: center;
+}
+.booster {
+  flex: 1; max-width: 90px; min-width: 0;
+  background: linear-gradient(160deg, rgba(108,140,255,0.18), rgba(176,108,255,0.15));
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+  padding: 7px 4px; color: var(--text); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  transition: transform .08s, opacity .2s;
+}
+.booster:active { transform: scale(0.96); }
+.booster:disabled, .booster.locked { opacity: 0.45; cursor: not-allowed; }
+.booster .b-icon { font-size: 20px; line-height: 1; font-weight: 700; }
+.booster .b-price { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: #f59f00; }
+.booster .b-price.b-price-energy { color: var(--accent); }
+
+/* Режим бомбы — поле подсвечивается, курсор-«прицел» */
+.board.bomb-mode { box-shadow: inset 0 0 0 2px #ff5252, inset 0 2px 24px rgba(0,0,0,0.4); cursor: crosshair; }
+.board.bomb-mode .gem { cursor: crosshair; }
+
+/* ===== Лидерборд ===== */
+.panel.lb { width: min(94%, 380px); }
+.lb-list {
+  max-height: 50vh; overflow-y: auto; padding: 4px 2px;
+  display: flex; flex-direction: column; gap: 6px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin: 6px 0 10px;
+}
+.lb-row {
+  display: grid; grid-template-columns: 36px 1fr auto; gap: 8px; align-items: center;
+  padding: 8px 10px; border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+}
+.lb-row.me { background: linear-gradient(90deg, rgba(108,140,255,0.25), rgba(176,108,255,0.2));
+  border: 1px solid rgba(108,140,255,0.4); }
+.lb-rank { font-weight: 800; color: var(--muted); text-align: center; }
+.lb-row:nth-child(1) .lb-rank { color: #ffd34d; }
+.lb-row:nth-child(2) .lb-rank { color: #d6e3ff; }
+.lb-row:nth-child(3) .lb-rank { color: #f6a374; }
+.lb-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-score { font-weight: 800; color: var(--good); display: inline-flex; align-items: center; gap: 6px; }
+.lb-prize { font-size: 11px; font-weight: 700; color: #f59f00; background: rgba(245,159,0,0.15);
+  padding: 2px 6px; border-radius: 6px; }
+.lb-me { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+
+/* ===== Туториал ===== */
+.panel.tutorial { width: min(94%, 380px); padding: 22px 22px 18px; }
+.tut-art {
+  width: 120px; height: 120px; margin: 0 auto 14px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.tut-art svg { width: 100%; height: 100%; }
+.tut-dots {
+  display: flex; gap: 6px; justify-content: center; margin: 8px 0 14px;
+}
+.tut-dots span {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  transition: background .2s, transform .2s;
+}
+.tut-dots span.active { background: var(--accent); transform: scale(1.3); }
+.tut-dots span.done { background: var(--good); }
+
+/* ===== Полоска опыта ===== */
+.xp-block { margin-bottom: 14px; }
+.xp-row { display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.xp-level strong { color: var(--accent); font-weight: 800; font-size: 14px; }
+.xp-text { font-weight: 600; }
+.xp-bar {
+  height: 10px; border-radius: 5px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden; position: relative;
+}
+.xp-bar-fill {
+  height: 100%; border-radius: 5px;
+  background: linear-gradient(90deg, var(--accent), var(--good));
+  transition: width .5s cubic-bezier(.2,.7,.3,1);
+  box-shadow: 0 0 6px rgba(56,211,159,0.35);
+}
+.xp-bar-fill.bumping { animation: xpBump 0.5s ease; }
+@keyframes xpBump { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.5); } }
+
+/* ===== Баннер активного события ===== */
+.event-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 12px;
+  background: linear-gradient(90deg, rgba(255,201,77,0.25), rgba(255,143,43,0.2));
+  border: 1px solid rgba(255,201,77,0.5);
+  margin-bottom: 14px; text-align: left;
+  animation: bannerGlow 2.4s ease-in-out infinite;
+}
+@keyframes bannerGlow {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,201,77,0.0); }
+  50%     { box-shadow: 0 0 0 5px rgba(255,201,77,0.15); }
+}
+.event-banner .ev-icon { font-size: 24px; font-weight: 800; color: #f59f00; line-height: 1; flex: none; }
+.event-banner .ev-title { font-weight: 700; font-size: 14px; }
+.event-banner .ev-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ===== Недельный квест ===== */
+.weekly-quest {
+  background: linear-gradient(135deg, rgba(108,140,255,0.18), rgba(176,108,255,0.18));
+  border: 1px solid rgba(108,140,255,0.4);
+  border-radius: 14px; padding: 12px;
+  margin: 6px 0 12px; text-align: left;
+}
+.weekly-quest.done {
+  background: linear-gradient(135deg, rgba(56,211,159,0.22), rgba(108,140,255,0.18));
+  border-color: rgba(56,211,159,0.45);
+}
+.weekly-quest .wq-top {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  font-weight: 700; font-size: 14px;
+}
+.weekly-quest .wq-badge { font-size: 11px; color: var(--accent); }
+.weekly-quest .wq-desc { font-size: 12px; color: var(--muted); margin: 4px 0 8px; }
+.weekly-quest .wq-reward { font-weight: 700; color: #f59f00; font-size: 13px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px; }
+.weekly-quest .wq-bar { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.weekly-quest .wq-bar-fill { height: 100%; background: linear-gradient(90deg,var(--accent),var(--accent2)); border-radius: 5px; transition: width .3s ease; }
+.weekly-quest.done .wq-bar-fill { background: linear-gradient(90deg,var(--good),#2bc488); }
+.weekly-quest .wq-progress { font-size: 12px; color: var(--muted); margin-top: 4px; display: flex; justify-content: space-between; }
+
+/* ===== Скины ===== */
+.panel.skins { width: min(94%, 400px); }
+.skins-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 12px; }
+.skin-item {
+  display: grid; grid-template-columns: 1fr auto;
+  align-items: center; gap: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 10px 12px; text-align: left;
+}
+.skin-item.active { background: linear-gradient(90deg, rgba(56,211,159,0.18), rgba(108,140,255,0.12));
+  border-color: rgba(56,211,159,0.45); }
+.skin-info .skin-title { font-weight: 700; font-size: 14px; }
+.skin-info .skin-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.skin-preview { display: flex; gap: 3px; margin-top: 6px; }
+.skin-preview .p {
+  width: 16px; height: 16px;
+  background: var(--g, #888);
+  box-shadow: inset 0 -2px 3px rgba(0,0,0,0.3), inset 0 1px 2px rgba(255,255,255,0.4);
+  border-radius: 22%;
+}
+.skin-preview .p.p1 { border-radius: 50%; }
+.skin-preview .p.p2 { clip-path: polygon(50% 7%, 95% 92%, 5% 92%); }
+.skin-preview .p.p3 { clip-path: polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%); }
+.skin-preview .p.p4 { clip-path: polygon(50% 2%,98% 50%,50% 98%,2% 50%); }
+.skin-action {
+  font-weight: 700; padding: 8px 12px; border-radius: 10px;
+  border: 0; cursor: pointer; font-size: 13px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.skin-action.buy { background: linear-gradient(90deg,#f59f00,#ffc94d); color: #5a3500; }
+.skin-action.buy.locked { opacity: 0.5; cursor: not-allowed; }
+.skin-action.equip { background: linear-gradient(90deg,var(--accent),var(--accent2)); color: #fff; }
+.skin-action.active { background: rgba(56,211,159,0.2); color: var(--good); border: 1px solid rgba(56,211,159,0.5); }
+
+/* ===== Дневные цели ===== */
+.panel.quests { width: min(94%, 400px); }
+.quest-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.quest-item {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 10px 12px;
+  text-align: left;
+}
+.quest-item.done {
+  background: linear-gradient(90deg, rgba(56,211,159,0.2), rgba(108,140,255,0.15));
+  border-color: rgba(56,211,159,0.45);
+}
+.quest-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.quest-title { font-weight: 700; font-size: 14px; }
+.quest-reward { font-weight: 700; color: #f59f00; font-size: 13px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px; }
+.quest-bar {
+  margin-top: 8px; height: 8px; border-radius: 4px;
+  background: rgba(255,255,255,0.08); overflow: hidden; position: relative;
+}
+.quest-bar-fill {
+  height: 100%; background: linear-gradient(90deg,var(--accent),var(--good));
+  border-radius: 4px; transition: width .3s ease;
+}
+.quest-item.done .quest-bar-fill { background: linear-gradient(90deg,var(--good),#2bc488); }
+.quest-progress { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.quest-item.done .quest-progress::after { content: ' ✓'; color: var(--good); font-weight: 800; }
+
+/* ===== Достижения ===== */
+.panel.profile { width: min(94%, 400px); text-align: center; }
+.profile-lvl { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; align-items: center; }
+.profile-lvl .xp-bar { width: 100%; }
+.profile-stats {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0 14px;
+}
+.profile-stat {
+  padding: 12px 8px; border-radius: 12px; text-align: center;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+}
+.profile-stat b { display: block; font-size: 20px; margin-bottom: 2px; color: var(--accent, #6c8cff); }
+.profile-stat span { font-size: 12px; opacity: 0.75; }
+
+.panel.ach { width: min(94%, 400px); }
+.ach-list { max-height: 56vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.ach-item {
+  display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: center;
+  padding: 10px 12px; border-radius: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+}
+.ach-item.unlocked { background: linear-gradient(90deg, rgba(56,211,159,0.18), rgba(108,140,255,0.12));
+  border-color: rgba(56,211,159,0.4); }
+.ach-icon { font-size: 20px; text-align: center; }
+.ach-title { font-weight: 700; font-size: 14px; }
+.ach-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ===== Летающая монетка ===== */
+.flying-coin {
+  position: fixed; z-index: 50; width: 16px; height: 16px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe9a8, #f08c00 70%);
+  border: 1.5px solid #ffd34d; pointer-events: none;
+  box-shadow: 0 2px 6px rgba(245,159,0,0.5);
+  transition: transform 0.55s cubic-bezier(.6,.05,.4,.95), opacity 0.55s linear;
+  will-change: transform, opacity;
+}
+
+/* ===== Магазин ===== */
+.shop-list { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 14px; }
+.shop-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px; padding: 14px; cursor: pointer; color: var(--text);
+  transition: transform .08s, border-color .2s;
+}
+.shop-item:active { transform: scale(0.98); }
+.shop-item:hover { border-color: var(--ton); }
+.shop-info { text-align: left; }
+.shop-title { font-weight: 700; font-size: 15px; }
+.shop-bonus { font-size: 12px; color: var(--good); margin-top: 2px; }
+.shop-price { font-weight: 800; color: var(--ton); white-space: nowrap; }

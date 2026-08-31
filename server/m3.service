@@ -1,0 +1,44 @@
+# systemd unit для запуска без Docker (альтернатива).
+# Установка:
+#   sudo cp server/m3.service /etc/systemd/system/m3.service
+#   sudo mkdir -p /opt/m3 && sudo cp -r . /opt/m3/
+#   cd /opt/m3/server && sudo npm install --omit=dev --include=optional
+#   sudo useradd -r -s /usr/sbin/nologin m3
+#   sudo chown -R m3:m3 /opt/m3
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now m3
+#   sudo journalctl -u m3 -f      # логи
+
+[Unit]
+Description=M3 Match-3 server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=m3
+Group=m3
+WorkingDirectory=/opt/m3/server
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+# Автоперезапуск при OOM
+OOMPolicy=continue
+
+# Прод-настройки — обязательные ENV снаружи через EnvironmentFile
+EnvironmentFile=/opt/m3/server/.env
+Environment=NODE_ENV=production
+
+# Изоляция (доступ только к своему каталогу)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/m3/server
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

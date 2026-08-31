@@ -1,0 +1,8 @@
+node_modules/
+server/node_modules/
+server/.env
+server/data.json
+server/data.sqlite*
+server/audit.jsonl
+server/backups/
+.claude/settings.local.json

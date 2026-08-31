@@ -1,0 +1,30 @@
+# Compose для быстрого старта на VPS: `docker compose up -d`
+# Данные и логи персистятся в именованных томах (не пропадают при
+# `docker compose down`, только при `down -v`).
+services:
+  m3:
+    build: .
+    image: m3-server
+    container_name: m3
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"   # локально; наружу через Nginx/Cloudflare + HTTPS
+    env_file:
+      - ./server/.env
+    environment:
+      NODE_ENV: production
+      USE_SQLITE: "1"            # прод-режим — SQLite вместо JSON
+      BACKUP_DIR: /app/server/backups
+    volumes:
+      - m3-data:/app/server/data
+      - m3-backups:/app/server/backups
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  m3-data:
+  m3-backups:
